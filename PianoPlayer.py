@@ -6,7 +6,7 @@ pygame.init()
 # ALL OF THE VARIABLES BELOW ARE DETERMINED BY USER INPUT OR IMAGE RECOGNITION
 # Tempo in beats per minute
 TEMPO = 120
-# Articulation
+# Default articulation
 ARTICULATION = "legato"
 # Number of beats in a bar (top number)
 TIME_SIGNATURE_TOP = 3
@@ -14,75 +14,137 @@ TIME_SIGNATURE_TOP = 3
 TIME_SIGNATURE_BOTTOM = 8
 # Number of milliseconds for each beat
 BEAT_DURATION = 60 / TEMPO * 1000
-# Notes to play in channels 1 and 2 (index 0 and 1), corresponds to right hand
-NOTES_VALUE_0 = [16, 16,
-                 16, 16, 16, 16, 16, 16,
-                 8, 16, 16, 16, 16,
-                 8, 16, 16, 16, 16,
-                 8, 16, 16, 16, 16,
-                 16, 16, 16, 16, 16, 16,
-                 8, 16, 16, 16, 16,
-                 8, 16, 16, 16, 16,
-                 4]
-NOTES_RAW_0 = ["E5", "Eb5",
-               "E5", "Eb5", "E5", "B4", "D5", "C5",
-               "A4", "s", "C4", "E4", "A4",
-               "B4", "s", "E4", "Ab4", "B4",
-               "C5", "s", "E4", "E5", "Eb5",
-               "E5", "Eb5", "E5", "B4", "D5", "C5",
-               "A4", "s", "C4", "E4", "A4",
-               "B4", "s", "E4", "C5", "B4",
-               "A4"]
-# Notes to play in channels 3 and 4 (index 2 and 3), corresponds to left hand
-NOTES_VALUE_1 = [8,
-                 TIME_SIGNATURE_BOTTOM / TIME_SIGNATURE_TOP,
-                 16, 16, 16, 16, 8,
-                 16, 16, 16, 16, 8,
-                 16, 16, 16, 16, 8,
-                 TIME_SIGNATURE_BOTTOM / TIME_SIGNATURE_TOP,
-                 16, 16, 16, 16, 8,
-                 16, 16, 16, 16, 8,
-                 16, 16, 16, 16]
-NOTES_RAW_1 = ["s",
-               "s",
-               "A2", "E3", "A3", "s", "s",
-               "E2", "E3", "Ab3", "s", "s",
-               "A2", "E3", "A3", "s", "s",
-               "s",
-               "A2", "E3", "A3", "s", "s",
-               "E2", "E3", "Ab3", "s", "s",
-               "A2", "E3", "A3", "s"]
 
+
+# Attribute of each note read from the music sheet
+class N:
+    def __init__(self, key, value, articulation=ARTICULATION):
+        self.key = key
+        self.value = value
+        self.articulation = articulation
+        self.hand = 0
+        self.beat_num = 0
+        self.played = False
+        self.pedal = False
+        self.faded = False
+
+    def play(self, start_time):
+        # Get current ticks
+        current_time = pygame.time.get_ticks()
+        # Calculate elapsed time since start of program
+        elapsed = current_time - start_time
+        # If the time matches the beat number for this particular note
+        if self.key and elapsed >= self.beat_num * DURATION + DELAY:
+            # If the pedal is not applied (which keeps the notes from stopping), fade the note out
+            if not self.pedal:
+                # If the note has been played and its time is passed and the articulation is staccato, fade the note out quickly
+                # Or if the note is a silence that has not been played yet, fade out the channels corresponding to the note
+                if self.articulation[0] != "l" and elapsed > (self.beat_num + min_val / self.value - 1) * DURATION + DELAY \
+                        and self.played and not self.faded:
+                    # Quickly fade this note only
+                    channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
+                    channel.fadeout(NOTE_FADE)
+                    # Keep track of when a note has already been faded out so that the channel doesn't fade out all other notes
+                    self.faded = True
+                if self.key == "s" and not self.played:
+                    # Quickly fade all notes on the channels that correspond to that hand
+                    for n in range(4):
+                        channel = globals()["channel_{0}".format(4 * self.hand + n)]
+                        channel.fadeout(NOTE_FADE)
+                    # If the silence was just played, update its played value
+                    if self.key == "s":
+                        self.played = True
+            # If the key to play is not a silence and the time is right and the note has not already been played
+            if not self.played and self.key != "s":
+                # Check which note object corresponds to the note being played
+                for note_object in NOTES:
+                    # If the key is exactly the same (e.g.: "Ab5" = "Ab5")
+                    if self.key == note_object.key:
+                        # Set the color to start the fade
+                        if len(note_object.key_type) == 1:
+                            note_object.color = LIGHT_BLUE
+                        else:
+                            note_object.color = DARK_BLUE
+                        # Stop the for loop
+                        break
+                if not self.pedal:
+                    # Calculate which channel to play the note in (each channel is responsible for half the notes)
+                    channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
+                else:
+                    channel = globals()["channel_{0}".format((self.beat_num % 4) + 4 * self.hand)]
+                # Stop any sound playing on this channel
+                channel.stop()
+                # Play the current note
+                channel.play(globals()[self.key])
+                print("Playing note: " + self.key)
+                # Append the note to a list so that the program doesn't play it again
+                self.played = True
+
+
+# Notes to play in channels 1 and 2 in regular legato and staccato (index 0 and 1), corresponds to right hand
+# Notes play also in channels 1 to 4 (index 0 to 3) when the pedal is pressed. That way, each note can play longer before fading out
+# The notes lists are lists of bars, which are themselves lists of notes. That way, we can keep track of when the pedal is pressed
+NOTES_0 = [[N("E5", 16), N("Eb5", 16)],
+           [N("E5", 16), N("Eb5", 16), N("E5", 16), N("B4", 16), N("D5", 16), N("C5", 16)],
+           [N("A4", 8), N("s", 16), N("C4", 16), N("E4", 16), N("A4", 16)],
+           [N("B4", 8), N("s", 16), N("E4", 16), N("Ab4", 16), N("B4", 16)],
+           [N("C5", 8), N("s", 16), N("E4", 16), N("E5", 16), N("Eb5", 16)],
+           [N("E5", 16), N("Eb5", 16), N("E5", 16), N("B4", 16), N("D5", 16), N("C5", 16)],
+           [N("A4", 8), N("s", 16), N("C4", 16), N("E4", 16), N("A4", 16)],
+           [N("B4", 8), N("s", 16), N("E4", 16), N("C5", 16), N("B4", 16)],
+           [N("A4", 4)]]
+# Notes to play in channels 5 and 6 in regular legato and staccato (index 4 and 5), corresponds to left hand
+# Notes play also in channels 5 to 8 (index 4 to 7) when the pedal is pressed. That way, each note can play longer before fading out
+NOTES_1 = [[N("s", 8)],
+           [N("s", TIME_SIGNATURE_BOTTOM / TIME_SIGNATURE_TOP)],
+           [N("A2", 16), N("E3", 16), N("A3", 16), N("s", 16), N("s", 8)],
+           [N("E2", 16), N("E3", 16), N("Ab3", 16), N("s", 16), N("s", 8)],
+           [N("A2", 16), N("E3", 16), N("A3", 16), N("s", 16), N("s", 8)],
+           [N("s", TIME_SIGNATURE_BOTTOM / TIME_SIGNATURE_TOP)],
+           [N("A2", 16), N("E3", 16), N("A3", 16), N("s", 16), N("s", 8)],
+           [N("E2", 16), N("E3", 16), N("Ab3", 16), N("s", 16), N("s", 8)],
+           [N("A2", 16), N("E3", 16), N("A3", 16), N("s", 16)]]
+# Bars during which the pedal is applied (keeps the notes playing)
+PEDAL_BARS = [2, 3, 4, 6, 7, 8]
+
+# Initialize minimum value variable
 min_val = 0
+# For both the hands
 for i in range(2):
-    for note_val in globals()["NOTES_VALUE_{0}".format(i)]:
-        if note_val > min_val:
-            min_val = note_val
-for i in range(2):
-    value_name = "NOTES_VALUE_{0}".format(i)
-    raw_name = "NOTES_RAW_{0}".format(i)
-    name = "NOTES_{0}".format(i)
-    globals()[name] = []
-    for index, note_val in enumerate(globals()[value_name]):
-        if globals()[raw_name][index] != "s":
-            globals()[name].append(globals()[raw_name][index])
-            if note_val != min_val:
-                for j in range(round(min_val / note_val - 1)):
-                    globals()[name].append(0)
-        elif ARTICULATION == "legato":
-            for j in range(round(min_val / note_val)):
-                globals()[name].append(0)
-        else:
-            for j in range(round(min_val / note_val)):
-                globals()[name].append("s")
+    # Get one bar at a time
+    for ind, bar in enumerate(globals()["NOTES_{0}".format(i)]):
+        # Get each note in that bar
+        for note_obj in bar:
+            # Set the hand value (useful for determining the channel to play on)
+            note_obj.hand = i
+            # Update minimum value
+            if note_obj.value > min_val:
+                min_val = note_obj.value
+            # Update pedal variable for that note
+            if ind in PEDAL_BARS:
+                note_obj.pedal = True
 # Calculate duration in milliseconds of the shortest note in the piece
 DURATION = round(TIME_SIGNATURE_BOTTOM / min_val * BEAT_DURATION)
 
-# Load the notes for the two hands
+# For both of the hands
 for i in range(2):
-    for note in globals()["NOTES_{0}".format(i)]:
-        if note and note != "s":
-            globals()[note] = pygame.mixer.Sound("data\\{0}.wav".format(note))
+    # Reset the beat count for each hand
+    beat = 0
+    # Take each bar at a time
+    for bar in globals()["NOTES_{0}".format(i)]:
+        # Take each note
+        for note_obj in bar:
+            # Set the start time of that note as the current beat number
+            note_obj.beat_num = beat
+            # Add a beat
+            beat += 1
+            # If the value of the current note is not the minimum value, add beats according to note length
+            if note_obj.value != min_val:
+                for _ in range(round(min_val / note_obj.value - 1)):
+                    beat += 1
+            # Load the notes for the two hands
+            if note_obj.key and note_obj.key != "s":
+                globals()[note_obj.key] = pygame.mixer.Sound("data\\{0}.wav".format(note_obj.key))
 
 # Create 8 pygame sound channels (you can only play one sound at a time in a channel)
 for i in range(8):
@@ -99,7 +161,7 @@ BLACK = (0, 0, 0)
 GRAY = (32, 32, 32)
 RED = (255, 0, 0)
 LIGHT_BLUE = (100, 100, 255)
-DARK_BLUE = (0, 0, 200)
+DARK_BLUE = (0, 0, 255)
 
 # Other global variables
 CLOSE = (50, 30)
@@ -107,11 +169,11 @@ SPACING = 20
 WIDTH = (MON_W - 2 * SPACING) // 52
 HEIGHT = MON_H // 4 - SPACING
 FADE = 5
-NOTE_FADE = 100
+NOTE_FADE = 200
 DELAY = 1000
 
 
-# Each note has attributes (to keep track of fades and to see which note is currently playing, etc)
+# Each drawn note has attributes (to keep track of fades and to see which note is currently playing, etc)
 class Note:
     def __init__(self, key, key_type, initial_color, number):
         # Full key name (e.g.: "Ab5")
@@ -205,45 +267,6 @@ def close_button(button_color):
     pygame.draw.line(WIN, WHITE, (MON_W - 30, 20), (MON_W - 20, 10))
 
 
-def play_notes(start_time, played_notes, notes_list_num):
-    # Get current ticks
-    current_time = pygame.time.get_ticks()
-    # Play the notes for the current hand (e.g.: notes_list_num = 0 corresponds to NOTES_0 - right hand)
-    for ind, key_sound in enumerate(globals()["NOTES_{0}".format(notes_list_num)]):
-        if key_sound and current_time - start_time >= ind * DURATION + DELAY:
-            # When silence
-            if ARTICULATION == "staccato" and key_sound != 0:
-                # Quickly fade all notes on that hand
-                channel_one = globals()["channel_{0}".format(2 * notes_list_num)]
-                channel_one.fadeout(NOTE_FADE)
-                channel_two = globals()["channel_{0}".format(2 * notes_list_num + 1)]
-                channel_two.fadeout(NOTE_FADE)
-            # If the key to play is not 0 (None) and the time is right and the note has not already been played
-            if ind not in played_notes and key_sound != "s":
-                # Check which note object corresponds to the note being played
-                for note_object in NOTES:
-                    # If the key is exactly the same (e.g.: "Ab5" = "Ab5")
-                    if key_sound == note_object.key:
-                        # Set the color to start the fade
-                        if len(note_object.key_type) == 1:
-                            note_object.color = LIGHT_BLUE
-                        else:
-                            note_object.color = DARK_BLUE
-                        # Stop the for loop
-                        break
-                # Calculate which channel to play the note in (each channel is responsible for half the notes)
-                channel_num = globals()["channel_{0}".format((ind % 2) + 2 * notes_list_num)]
-                # Stop any sound playing on this channel
-                channel_num.stop()
-                # Play the current note
-                channel_num.play(globals()[key_sound])
-                print("Playing note: " + key_sound)
-                # Append the note to a list so that the program doesn't play it again
-                played_notes.append(ind)
-    # Update the played notes list
-    return played_notes
-
-
 def main():
     # Keep track of time
     initial_time = pygame.time.get_ticks()
@@ -251,8 +274,6 @@ def main():
     clock = pygame.time.Clock()
     # Initialize local variables
     closed = False
-    played_0 = []
-    played_1 = []
 
     # Main loop
     run = True
@@ -265,8 +286,10 @@ def main():
         mouse_x, mouse_y = pygame.mouse.get_pos()
 
         # Play the notes if it is time and update played notes list
-        played_0 = play_notes(initial_time, played_0, 0)
-        played_1 = play_notes(initial_time, played_1, 1)
+        for n in range(2):
+            for single_bar in globals()["NOTES_{0}".format(n)]:
+                for note_object in single_bar:
+                    note_object.play(initial_time)
 
         # Draw all white notes first (otherwise half of the black notes would be covered)
         for note_object in NOTES:
