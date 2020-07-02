@@ -1,6 +1,6 @@
 from scipy.io import wavfile
 
-THRESHOLD = 150
+THRESHOLD = 500
 keys = ["A", "B", "C", "D", "E", "F", "G", "Ab", "Bb", "Cb", "Db", "Eb", "Fb", "Gb"]
 total_trimmed = 0
 
