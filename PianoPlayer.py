@@ -24,6 +24,7 @@ HEIGHT = MON_H // 4 - SPACING
 FADE = 5
 NOTE_FADE = 200
 DELAY = 1000
+OCCUPIED_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 7]
 
 # Create 8 pygame sound channels (you can only play one sound at a time in a channel)
 for i in range(8):
@@ -44,15 +45,16 @@ BEAT_DURATION = 60 / TEMPO * 1000
 
 # Attribute of each note read from the music sheet
 class N:
-    def __init__(self, key, value, articulation=ARTICULATION):
+    def __init__(self, key, value, articulation=ARTICULATION, channel=None, pedal=False):
         self.key = key
         self.value = value
         self.articulation = articulation
         self.hand = 0
         self.beat_num = 0
         self.played = False
-        self.pedal = False
+        self.pedal = pedal
         self.faded = False
+        self.channel = channel
 
     def play(self, start_time):
         # Get current ticks
@@ -68,8 +70,11 @@ class N:
                 if self.articulation[0] != "l" and elapsed >= (self.beat_num + min_val / self.value - 1) * DURATION + DELAY \
                         or self.articulation[0] == "l" and elapsed >= (self.beat_num + min_val / self.value) * DURATION + DELAY:
                     if self.played and not self.faded:
-                        # Quickly fade this note only
-                        channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
+                        if not self.channel:
+                            # Quickly fade this note only
+                            channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
+                        else:
+                            channel = pygame.mixer.Channel(self.channel)
                         channel.fadeout(NOTE_FADE)
                         # Keep track of when a note has already been faded out so that the channel doesn't fade out all other notes
                         self.faded = True
@@ -94,7 +99,10 @@ class N:
                             note_object.color = DARK_BLUE
                         # Stop the for loop
                         break
-                if not self.pedal:
+                if self.channel:
+                    channel = pygame.mixer.Channel(self.channel)
+                    OCCUPIED_CHANNELS.remove(self.channel)
+                elif not self.pedal:
                     # Calculate which channel to play the note in (each channel is responsible for half the notes)
                     channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
                 else:
@@ -106,6 +114,26 @@ class N:
                 print("Playing note: " + self.key)
                 # Append the note to a list so that the program doesn't play it again
                 self.played = True
+
+
+class Chord:
+    def __init__(self, notes, value, articulation=ARTICULATION, pedal=False):
+        self.beat_num = 0
+        self.pedal = pedal
+        self.key = []
+        self.channel = 0
+        self.value = value
+        for n, key in enumerate(notes):
+            while self.channel in OCCUPIED_CHANNELS:
+                self.channel += 1
+            self.key.append(N(key, value, articulation, channel=self.channel, pedal=self.pedal))
+            OCCUPIED_CHANNELS.append(self.channel)
+        pygame.mixer.set_num_channels(self.channel + 1)
+
+    def play(self, start_time):
+        for key in self.key:
+            key.beat_num = self.beat_num
+            key.play(start_time)
 
 
 # Notes to play in channels 1 and 2 in regular legato and staccato (index 0 and 1), corresponds to right hand
@@ -171,7 +199,11 @@ for i in range(2):
                     beat += 1
             # Load the notes for the two hands
             if note_obj.key and note_obj.key != "s":
-                globals()[note_obj.key] = pygame.mixer.Sound("data\\{0}.wav".format(note_obj.key))
+                if type(note_obj.key) != list:
+                    globals()[note_obj.key] = pygame.mixer.Sound("data\\{0}.wav".format(note_obj.key))
+                else:
+                    for note in note_obj.key:
+                        globals()[note.key] = pygame.mixer.Sound("data\\{0}.wav".format(note.key))
 
 
 # Each drawn note has attributes (to keep track of fades and to see which note is currently playing, etc)
