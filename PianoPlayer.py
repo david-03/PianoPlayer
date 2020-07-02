@@ -3,7 +3,33 @@ import pygame
 # Initialize pygame
 pygame.init()
 
-# ALL OF THE VARIABLES BELOW ARE DETERMINED BY USER INPUT OR IMAGE RECOGNITION
+# Get user's monitor width, create pygame window and set fullscreen
+MON_W = pygame.display.Info().current_w
+MON_H = pygame.display.Info().current_h
+WIN = pygame.display.set_mode((MON_W, MON_H), pygame.FULLSCREEN)
+
+# Colors used
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (32, 32, 32)
+RED = (255, 0, 0)
+LIGHT_BLUE = (100, 100, 255)
+DARK_BLUE = (0, 0, 255)
+
+# Other global variables
+CLOSE = (50, 30)
+SPACING = 20
+WIDTH = (MON_W - 2 * SPACING) // 52
+HEIGHT = MON_H // 4 - SPACING
+FADE = 5
+NOTE_FADE = 200
+DELAY = 1000
+
+# Create 8 pygame sound channels (you can only play one sound at a time in a channel)
+for i in range(8):
+    globals()["channel_{0}".format(i)] = pygame.mixer.Channel(i)
+
+# ALL OF THE GLOBAL VARIABLES BELOW ARE DETERMINED BY USER INPUT OR IMAGE RECOGNITION
 # Tempo in beats per minute
 TEMPO = 120
 # Default articulation
@@ -39,14 +65,15 @@ class N:
             if not self.pedal:
                 # If the note has been played and its time is passed and the articulation is staccato, fade the note out quickly
                 # Or if the note is a silence that has not been played yet, fade out the channels corresponding to the note
-                if self.articulation[0] != "l" and elapsed > (self.beat_num + min_val / self.value - 1) * DURATION + DELAY \
-                        and self.played and not self.faded:
-                    # Quickly fade this note only
-                    channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
-                    channel.fadeout(NOTE_FADE)
-                    # Keep track of when a note has already been faded out so that the channel doesn't fade out all other notes
-                    self.faded = True
-                if self.key == "s" and not self.played:
+                if self.articulation[0] != "l" and elapsed >= (self.beat_num + min_val / self.value - 1) * DURATION + DELAY \
+                        or self.articulation[0] == "l" and elapsed >= (self.beat_num + min_val / self.value) * DURATION + DELAY:
+                    if self.played and not self.faded:
+                        # Quickly fade this note only
+                        channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
+                        channel.fadeout(NOTE_FADE)
+                        # Keep track of when a note has already been faded out so that the channel doesn't fade out all other notes
+                        self.faded = True
+                elif self.key == "s" and not self.played:
                     # Quickly fade all notes on the channels that correspond to that hand
                     for n in range(4):
                         channel = globals()["channel_{0}".format(4 * self.hand + n)]
@@ -145,32 +172,6 @@ for i in range(2):
             # Load the notes for the two hands
             if note_obj.key and note_obj.key != "s":
                 globals()[note_obj.key] = pygame.mixer.Sound("data\\{0}.wav".format(note_obj.key))
-
-# Create 8 pygame sound channels (you can only play one sound at a time in a channel)
-for i in range(8):
-    globals()["channel_{0}".format(i)] = pygame.mixer.Channel(i)
-
-# Get user's monitor width, create pygame window and set fullscreen
-MON_W = pygame.display.Info().current_w
-MON_H = pygame.display.Info().current_h
-WIN = pygame.display.set_mode((MON_W, MON_H), pygame.FULLSCREEN)
-
-# Colors used
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GRAY = (32, 32, 32)
-RED = (255, 0, 0)
-LIGHT_BLUE = (100, 100, 255)
-DARK_BLUE = (0, 0, 255)
-
-# Other global variables
-CLOSE = (50, 30)
-SPACING = 20
-WIDTH = (MON_W - 2 * SPACING) // 52
-HEIGHT = MON_H // 4 - SPACING
-FADE = 5
-NOTE_FADE = 200
-DELAY = 1000
 
 
 # Each drawn note has attributes (to keep track of fades and to see which note is currently playing, etc)
