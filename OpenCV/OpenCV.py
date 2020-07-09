@@ -1,51 +1,3 @@
-import cv2
-import numpy as np
-import pygame
-import tkinter as tk
-from tkinter.filedialog import askopenfilename
-
-# # # # # # #
-# # # # # # # # # # # # # # # # # # # # #
-# Modes either from webcam or from image (0:None, 1:camera, 2:image)
-MODE = 0
-# Image file location
-PATH = ""
-# Dimensions of the paper
-PAPER_WIDTH = 8.5
-PAPER_HEIGHT = 11
-# Final viewing dimensions based on aspect ratio of original paper
-VIEWING_WIDTH = 700
-# Camera viewing dimensions
-CAMERA_WIDTH = 600
-# Outline width
-LINE_WIDTH = CAMERA_WIDTH // 120
-# Webcam number (usually 0 unless you have more than one webcam connected)
-WEBCAM_NUM = 0
-# # # # # # # # # # # # # # # # # # # # #
-# # # # # # #
-
-# Set camera resolution to a very high number so that it automatically picks the next highest available
-RESOLUTION = (2000, 2000)
-# Width of image to process (original image downscaled) (smaller makes processing easier)
-IMAGE_WIDTH = 400
-# Initialize camera object
-CAMERA = None
-
-# Initialize pygame
-pygame.init()
-
-SPACING = 500
-BLACK = (0, 0, 0)
-GRAY = (75, 75, 75)
-RED = BLUE_BGR = (255, 0, 0)
-GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
-HEX_BLUE = "#bff0ff"
-
-FONT_32 = pygame.font.Font("data\\agency-fb.ttf", 32)
-FONT_64 = pygame.font.Font("data\\agency-fb.ttf", 64)
-
-
 # Create pop-up window
 def select_mode():
     global PAPER_WIDTH, PAPER_HEIGHT
@@ -77,10 +29,10 @@ def select_mode():
         except ValueError:
             disable()
 
-    # Tkinter variable with starting value of 17 and linked to limit_col function
+    # Tkinter variable with starting value of 17 and linked to check_valid function
     width_value = tk.StringVar()
     width_value.set(PAPER_WIDTH)
-    # Whenever width_value is changed, it calls the function limit_col
+    # Whenever width_value is changed, it calls the function check_valid
     width_value.trace('w', check_valid)
 
     # Same as width_value
@@ -89,20 +41,16 @@ def select_mode():
     height_value.trace("w", check_valid)
 
     def disable():
-        file_button["state"] = "disabled"
-        file_button["bg"] = "#d3d3d3"
-        file_button["cursor"] = "X_cursor"
-        camera_button["state"] = "disabled"
-        camera_button["bg"] = "#d3d3d3"
-        camera_button["cursor"] = "X_cursor"
+        for button in [file_button, camera_button]:
+            button["state"] = "disabled"
+            button["bg"] = "#d3d3d3"
+            button["cursor"] = "X_cursor"
 
     def enable():
-        file_button["state"] = "normal"
-        file_button["bg"] = HEX_BLUE
-        file_button["cursor"] = "arrow"
-        camera_button["state"] = "normal"
-        camera_button["bg"] = HEX_BLUE
-        camera_button["cursor"] = "arrow"
+        for button in [file_button, camera_button]:
+            button["state"] = "normal"
+            button["bg"] = HEX_LIGHT_BLUE
+            button["cursor"] = "arrow"
 
     # Close everything
     def end():
@@ -112,12 +60,13 @@ def select_mode():
     # What to do when button is clicked
     def click_file():
         global MODE, PATH, PAPER_WIDTH, PAPER_HEIGHT
-        MODE = 2
         # Shows an "Open" dialog box and returns the path to the selected file
         PATH = askopenfilename(filetypes=[("Images", ".jpeg .jpg .jfif, .jpx, .jp2 .png .tiff .tif")])
-        PAPER_WIDTH = float(width_entry.get()[:4])
-        PAPER_HEIGHT = float(height_entry.get()[:4])
-        end()
+        if PATH:
+            MODE = 2
+            PAPER_WIDTH = float(width_entry.get()[:4])
+            PAPER_HEIGHT = float(height_entry.get()[:4])
+            end()
 
     def click_camera():
         global MODE
@@ -131,33 +80,33 @@ def select_mode():
     empty_frame = tk.LabelFrame(root, bd=0)
     empty_frame.grid(row=1, pady=25)
     # Text inside frame
-    text = tk.Label(main_frame, text="Analyze image from...", font="Verdana 20")
+    text = tk.Label(main_frame, text="Analyze image from...", font="Verdana 20 bold")
     text.grid(row=0, pady=25)
     # Button
     file_button = tk.Button(main_frame, text="Existing File", font="Verdana 24", command=click_file, bd=5,
-                            bg=HEX_BLUE)
+                            bg=HEX_LIGHT_BLUE)
     file_button.grid(row=1, padx=100, pady=10)
     # Button
     camera_button = tk.Button(main_frame, text="Camera", font="Verdana 24", command=click_camera, bd=5,
-                              bg=HEX_BLUE)
+                              bg=HEX_LIGHT_BLUE)
     camera_button.grid(row=2, padx=100, pady=10)
 
     # Create frame inside mainframe
     frame = tk.LabelFrame(main_frame, bd=0)
     frame.grid(row=3, pady=25)
     # Text inside frame
-    width_text = tk.Label(frame, text="Paper width: ", font="Verdana 20", anchor="w")
-    width_text.grid(row=0, column=0, sticky="w")
+    width_text = tk.Label(frame, text="Paper width: ", font="Verdana 20")
+    width_text.grid(row=0, column=0, sticky="e")
     # Input box next to text
     width_entry = tk.Entry(frame, width=5, borderwidth=10, justify="center", font="Verdana 24 bold",
-                           fg="#0017ff", bg=HEX_BLUE, textvariable=width_value)
+                           fg=HEX_BLUE, bg=HEX_LIGHT_BLUE, textvariable=width_value)
     width_entry.grid(row=0, column=1)
     # Text under previous
-    height_text = tk.Label(frame, text="Paper height: ", font="Verdana 20", anchor="w")
-    height_text.grid(row=1, column=0, sticky="w")
+    height_text = tk.Label(frame, text="Paper height: ", font="Verdana 20")
+    height_text.grid(row=1, column=0, sticky="e")
     # Input box under previous
     height_entry = tk.Entry(frame, width=5, borderwidth=10, justify="center", font="Verdana 24 bold",
-                            fg="#0017ff", bg=HEX_BLUE, textvariable=height_value)
+                            fg=HEX_BLUE, bg=HEX_LIGHT_BLUE, textvariable=height_value)
     height_entry.grid(row=1, column=1)
 
     # Check if root window is closed
@@ -207,7 +156,7 @@ def rescale(points, width, height, final_width, final_height):
     # Scale up each of the points to the image's original scale
     for point_num in range(4):
         points[point_num] = [int(points[point_num][0]) * final_width // width, int(points[point_num][1]) * final_height // height]
-    # Reshape the numpy array into a format that OpenCV can read
+    # Reshape the numpy array into a format that OpenCVfolder can read
     points = points.reshape((4, 1, 2))
     # Function returns the scaled points
     return points
@@ -218,7 +167,7 @@ def get_sheet_corners(image, total_area):
     sheet_corners = np.array([])
     max_area = 0
     final_contour = np.array([])
-    # Get all the outline of the objects that OpenCV detects
+    # Get all the outline of the objects that OpenCVfolder detects
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     # For each contour
     for contour in contours:
@@ -226,7 +175,7 @@ def get_sheet_corners(image, total_area):
         area = cv2.contourArea(contour)
         # Check if surface area is big enough (this ignores all the tiny bits of corny shit that we don't need)
         if area > total_area // 8:
-            # Get perimeter of the shape detected by OpenCV
+            # Get perimeter of the shape detected by OpenCVfolder
             perimeter = cv2.arcLength(contour, True)
             # Allow difference of 10% from predicted perimeter (perimeter of a perfect polygon
             # that closely matches the shape detected in the image)
@@ -253,12 +202,12 @@ def warp(image, sheet_corners, width, height):
     matrix = cv2.getPerspectiveTransform(points1, points2)
     # Warp the image based on the perspective matrix
     processed = cv2.warpPerspective(image, matrix, (width, height))
-    # Function returns warped image OpenCV object
+    # Function returns warped image OpenCVfolder object
     return processed
 
 
 def create_pygame_image(image, width, height, rotation=0):
-    # Convert the colors to from BGR (OpenCV format) to RGB (pygame format) and make the pygame image from the array
+    # Convert the colors to from BGR (OpenCVfolder format) to RGB (pygame format) and make the pygame image from the array
     pygame_image = pygame.surfarray.make_surface(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     # Rotate 90 degrees anticlockwise and flip the image on its x axis
     pygame_image = pygame.transform.flip(pygame.transform.rotate(pygame_image, 90 * (rotation % 4 - 1)), True, False)
@@ -416,35 +365,39 @@ def main():
                 # Display image
                 window.blit(final_image, (0, 0))
 
-            # If mouse is on the text, change the color
-            if hovering:
-                color = GREEN
-            else:
-                color = BLUE
-            # Displayed text changes if user captured the image
-            text = ''
-            text_w = CAMERA_WIDTH
-            text_h = CAMERA_HEIGHT
-            if not captured and len(corners_copy) == 4:
-                text = "CAPTURE"
-            elif captured:
-                if capturing:
-                    text = "CROP"
+            if len(corners_copy) == 4:
+                # If mouse is on the text, change the color
+                if hovering:
+                    color = GREEN
                 else:
-                    text = "ROTATE"
-                    text_w = VIEWING_WIDTH
-                    text_h = VIEWING_HEIGHT
-                if MODE == 1 or analysing:
-                    # Render reset text
-                    display_text(window, FONT_32, "Press  ' r '  to  reset", RED, text_w, text_h, 3 / 4)
+                    color = BLUE
+                # Displayed text changes if user captured the image
+                text = ''
+                text_w = CAMERA_WIDTH
+                text_h = CAMERA_HEIGHT
+                if not captured:
+                    text = "CAPTURE"
+                elif captured:
+                    if capturing:
+                        text = "CROP"
+                    else:
+                        text = "ROTATE"
+                        text_w = VIEWING_WIDTH
+                        text_h = VIEWING_HEIGHT
+                    if MODE == 1 or analysing:
+                        # Render reset text
+                        display_text(window, FONT_32, "Press  ' r '  to  reset", RED, text_w, text_h, 3 / 4)
 
-            # Render option text
-            text_object, text_x, text_y = display_text(window, FONT_64, text, color, text_w, text_h, 1 / 2)
-            # Check if mouse is on the text
-            if text_object.get_rect(topleft=(text_x, text_y)).collidepoint(mouse_x, mouse_y):
-                hovering = True
+                # Render option text
+                text_object, text_x, text_y = display_text(window, FONT_64, text, color, text_w, text_h, 1 / 2)
+                # Check if mouse is on the text
+                if text_object.get_rect(topleft=(text_x, text_y)).collidepoint(mouse_x, mouse_y):
+                    hovering = True
+                else:
+                    hovering = False
             else:
-                hovering = False
+                # Render no image text
+                display_text(window, FONT_64, "No Image Detected", RED, CAMERA_WIDTH, CAMERA_HEIGHT, 1 / 2)
 
         else:
             # Render no image text
@@ -524,11 +477,60 @@ def main():
 
 
 if __name__ == "__main__":
+    import cv2
+    import numpy as np
+    import pygame
+    import tkinter as tk
+    from tkinter.filedialog import askopenfilename
+
+    # Initialize global variables
+    # # # # # # #
+    # # # # # # # # # # # # # # # # # # # # #
+    # Modes either from webcam or from image (0:None, 1:camera, 2:image)
+    MODE = 0
+    # Image file location
+    PATH = ""
+    # Dimensions of the paper
+    PAPER_WIDTH = 8.5
+    PAPER_HEIGHT = 11
+    # Final viewing dimensions based on aspect ratio of original paper
+    VIEWING_WIDTH = 700
+    # Camera viewing dimensions
+    CAMERA_WIDTH = 600
+    # Outline width
+    LINE_WIDTH = CAMERA_WIDTH // 120
+    # Webcam number (usually 0 unless you have more than one webcam connected)
+    WEBCAM_NUM = 0
+    # # # # # # # # # # # # # # # # # # # # #
+    # # # # # # #
+
+    # Set camera resolution to a very high number so that it automatically picks the next highest available
+    RESOLUTION = (2000, 2000)
+    # Width of image to process (original image downscaled) (smaller makes processing easier)
+    IMAGE_WIDTH = 400
+    # Initialize camera object
+    CAMERA = None
+
+    # Initialize pygame
+    pygame.init()
+
+    SPACING = 500
+    BLACK = (0, 0, 0)
+    GRAY = (75, 75, 75)
+    RED = BLUE_BGR = (255, 0, 0)
+    GREEN = (0, 255, 0)
+    BLUE = (0, 0, 255)
+    HEX_BLUE = "#0000ff"
+    HEX_LIGHT_BLUE = "#bff0ff"
+
+    FONT_32 = pygame.font.Font("data\\agency-fb.ttf", 32)
+    FONT_64 = pygame.font.Font("data\\agency-fb.ttf", 64)
+
     try:
         # Tkinter window to select some of the variables (mode and paper dimensions)
         select_mode()
         # Check if user actually selected anything
-        if MODE == 1 or (MODE == 2 and len(PATH)):
+        if MODE == 1 or (MODE == 2 and PATH):
             # Final viewing dimensions based on aspect ratio of original paper
             VIEWING_HEIGHT = round(PAPER_HEIGHT * VIEWING_WIDTH / PAPER_WIDTH)
             if MODE == 1:
@@ -544,8 +546,7 @@ if __name__ == "__main__":
             # Close webcam
             if MODE == 1:
                 CAMERA.release()
-            # Close everything
-            cv2.destroyAllWindows()
+
         pygame.quit()
 
     except Exception as error:

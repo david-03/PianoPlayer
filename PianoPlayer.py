@@ -14,7 +14,7 @@ BLACK = (0, 0, 0)
 GRAY = (32, 32, 32)
 RED = (255, 0, 0)
 LIGHT_BLUE = (100, 100, 255)
-DARK_BLUE = (0, 0, 255)
+DARK_BLUE = (0, 0, 240)
 
 # Other global variables
 CLOSE = (50, 30)
@@ -73,6 +73,7 @@ class N:
                         if not self.channel:
                             # Quickly fade this note only
                             channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
+                        # If a channel is specified, fade out that channel only
                         else:
                             channel = pygame.mixer.Channel(self.channel)
                         channel.fadeout(NOTE_FADE)
@@ -99,40 +100,54 @@ class N:
                             note_object.color = DARK_BLUE
                         # Stop the for loop
                         break
+                # If a channel is specified, set the sound to play on it and reset its availability so other cords can make use of it
                 if self.channel:
                     channel = pygame.mixer.Channel(self.channel)
-                    OCCUPIED_CHANNELS.remove(self.channel)
+                    if elapsed >= (self.beat_num + min_val / self.value) * DURATION + DELAY:
+                        try:
+                            OCCUPIED_CHANNELS.remove(self.channel)
+                        except ValueError:
+                            pass
                 elif not self.pedal:
                     # Calculate which channel to play the note in (each channel is responsible for half the notes)
                     channel = globals()["channel_{0}".format((self.beat_num % 2) + 4 * self.hand)]
                 else:
+                    # When the pedal is pressed, there are four channels on which the notes play, so each note stays longer
                     channel = globals()["channel_{0}".format((self.beat_num % 4) + 4 * self.hand)]
                 # Stop any sound playing on this channel
                 channel.stop()
                 # Play the current note
                 channel.play(globals()[self.key])
-                print("Playing note: " + self.key)
                 # Append the note to a list so that the program doesn't play it again
                 self.played = True
 
 
 class Chord:
     def __init__(self, notes, value, articulation=ARTICULATION, pedal=False):
+        # Same variable names as class N
         self.beat_num = 0
         self.pedal = pedal
         self.key = []
         self.channel = 0
         self.value = value
+        # Create an N object for each note of the chord
         for n, key in enumerate(notes):
+            # Find unoccupied channels
             while self.channel in OCCUPIED_CHANNELS:
                 self.channel += 1
+            # Append the N object to the list of keys
             self.key.append(N(key, value, articulation, channel=self.channel, pedal=self.pedal))
+            # Update the list of occupied channels
             OCCUPIED_CHANNELS.append(self.channel)
+        # Set number of channels to accommodate the extra channels
         pygame.mixer.set_num_channels(self.channel + 1)
 
+    # Same definition name as class N
     def play(self, start_time):
         for key in self.key:
+            # Set the correct beat number to synchronize the notes with the rest of the piece
             key.beat_num = self.beat_num
+            # Play each note
             key.play(start_time)
 
 
