@@ -4,8 +4,8 @@ import pygame
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
 
-# # # # # # # # # # # # # # #
-
+# # # # # # #
+# # # # # # # # # # # # # # # # # # # # #
 # Modes either from webcam or from image (0:None, 1:camera, 2:image)
 MODE = 0
 # Image file location
@@ -21,8 +21,8 @@ CAMERA_WIDTH = 600
 LINE_WIDTH = CAMERA_WIDTH // 120
 # Webcam number (usually 0 unless you have more than one webcam connected)
 WEBCAM_NUM = 0
-
-# # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # #
+# # # # # # #
 
 # Set camera resolution to a very high number so that it automatically picks the next highest available
 RESOLUTION = (2000, 2000)
