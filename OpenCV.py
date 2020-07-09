@@ -1,19 +1,20 @@
 import cv2
 import numpy as np
 import pygame
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
 
 # # # # # # # # # # # # # # #
 
-# Modes either from webcam or from image (0: camera or 1: image)
-MODE = 1
+# Modes either from webcam or from image (0:None, 1:camera, 2:image)
+MODE = 0
 # Image file location
-PATH = "images\\sheet.jpg"
+PATH = ""
 # Dimensions of the paper
 PAPER_WIDTH = 8.5
 PAPER_HEIGHT = 11
 # Final viewing dimensions based on aspect ratio of original paper
 VIEWING_WIDTH = 700
-VIEWING_HEIGHT = round(PAPER_HEIGHT * VIEWING_WIDTH / PAPER_WIDTH)
 # Camera viewing dimensions
 CAMERA_WIDTH = 600
 # Outline width
@@ -39,8 +40,130 @@ GRAY = (75, 75, 75)
 RED = BLUE_BGR = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+HEX_BLUE = "#bff0ff"
 
+FONT_32 = pygame.font.Font("data\\agency-fb.ttf", 32)
 FONT_64 = pygame.font.Font("data\\agency-fb.ttf", 64)
+
+
+# Create pop-up window
+def select_mode():
+    global PAPER_WIDTH, PAPER_HEIGHT
+    root = tk.Tk()
+    root.title("Select Mode")
+    root.iconbitmap("data\\piano.ico")
+    root.resizable(width=False, height=False)
+
+    # Check if input is valid
+    # "*" because the callback from line 62 generates a number of arguments
+    # "_" because we don't use the arguments in the function
+    def check_valid(*_):
+        # Store user input in temporary string variable
+        paper_width = width_entry.get()
+        paper_height = height_entry.get()
+        if len(paper_width) > 4:
+            # Set tkinter variable width_value to the first two characters of user input only
+            width_value.set(paper_width[:4])
+        if len(paper_height) > 4:
+            height_value.set(paper_height[:4])
+        # Check if input is a valid number, change button state accordingly
+        try:
+            width = float(paper_width[:4])
+            height = float(paper_height[:4])
+            if file_button["state"] == "disabled" and width > 0 and height > 0 and 0.5 < width / height < 2:
+                enable()
+            elif file_button["state"] == "normal" and (width < 0 or height < 0 or width / height >= 2 or width / height <= 0.5):
+                disable()
+        except ValueError:
+            disable()
+
+    # Tkinter variable with starting value of 17 and linked to limit_col function
+    width_value = tk.StringVar()
+    width_value.set(PAPER_WIDTH)
+    # Whenever width_value is changed, it calls the function limit_col
+    width_value.trace('w', check_valid)
+
+    # Same as width_value
+    height_value = tk.StringVar()
+    height_value.set(PAPER_HEIGHT)
+    height_value.trace("w", check_valid)
+
+    def disable():
+        file_button["state"] = "disabled"
+        file_button["bg"] = "#d3d3d3"
+        file_button["cursor"] = "X_cursor"
+        camera_button["state"] = "disabled"
+        camera_button["bg"] = "#d3d3d3"
+        camera_button["cursor"] = "X_cursor"
+
+    def enable():
+        file_button["state"] = "normal"
+        file_button["bg"] = HEX_BLUE
+        file_button["cursor"] = "arrow"
+        camera_button["state"] = "normal"
+        camera_button["bg"] = HEX_BLUE
+        camera_button["cursor"] = "arrow"
+
+    # Close everything
+    def end():
+        root.destroy()
+        root.quit()
+
+    # What to do when button is clicked
+    def click_file():
+        global MODE, PATH, PAPER_WIDTH, PAPER_HEIGHT
+        MODE = 2
+        # Shows an "Open" dialog box and returns the path to the selected file
+        PATH = askopenfilename(filetypes=[("Images", ".jpeg .jpg .jfif, .jpx, .jp2 .png .tiff .tif")])
+        PAPER_WIDTH = float(width_entry.get()[:4])
+        PAPER_HEIGHT = float(height_entry.get()[:4])
+        end()
+
+    def click_camera():
+        global MODE
+        MODE = 1
+        end()
+
+    # Create a main frame inside window (to change cursor)
+    main_frame = tk.LabelFrame(root, bd=0)
+    main_frame.grid(row=0, pady=10)
+    # Empty frame to create spacing underneath
+    empty_frame = tk.LabelFrame(root, bd=0)
+    empty_frame.grid(row=1, pady=25)
+    # Text inside frame
+    text = tk.Label(main_frame, text="Analyze image from...", font="Verdana 20")
+    text.grid(row=0, pady=25)
+    # Button
+    file_button = tk.Button(main_frame, text="Existing File", font="Verdana 24", command=click_file, bd=5,
+                            bg=HEX_BLUE)
+    file_button.grid(row=1, padx=100, pady=10)
+    # Button
+    camera_button = tk.Button(main_frame, text="Camera", font="Verdana 24", command=click_camera, bd=5,
+                              bg=HEX_BLUE)
+    camera_button.grid(row=2, padx=100, pady=10)
+
+    # Create frame inside mainframe
+    frame = tk.LabelFrame(main_frame, bd=0)
+    frame.grid(row=3, pady=25)
+    # Text inside frame
+    width_text = tk.Label(frame, text="Paper width: ", font="Verdana 20", anchor="w")
+    width_text.grid(row=0, column=0, sticky="w")
+    # Input box next to text
+    width_entry = tk.Entry(frame, width=5, borderwidth=10, justify="center", font="Verdana 24 bold",
+                           fg="#0017ff", bg=HEX_BLUE, textvariable=width_value)
+    width_entry.grid(row=0, column=1)
+    # Text under previous
+    height_text = tk.Label(frame, text="Paper height: ", font="Verdana 20", anchor="w")
+    height_text.grid(row=1, column=0, sticky="w")
+    # Input box under previous
+    height_entry = tk.Entry(frame, width=5, borderwidth=10, justify="center", font="Verdana 24 bold",
+                            fg="#0017ff", bg=HEX_BLUE, textvariable=height_value)
+    height_entry.grid(row=1, column=1)
+
+    # Check if root window is closed
+    root.protocol("WM_DELETE_WINDOW", end)
+    # Tkinter loop to keep window open
+    root.mainloop()
 
 
 def preprocess(image):
@@ -145,12 +268,21 @@ def create_pygame_image(image, width, height, rotation=0):
     return pygame_image
 
 
+def display_text(window, font, text, color, width, height, height_ratio):
+    # Render text and calculate position
+    text_object = font.render(text, True, color)
+    text_x = round(width + SPACING / 2 - text_object.get_width() / 2)
+    text_y = round(height_ratio * height - text_object.get_height() / 2)
+    window.blit(text_object, (text_x, text_y))
+    return text_object, text_x, text_y
+
+
 def main():
     # Get first frame from camera or image from file
-    if MODE == 0:
+    if MODE == 1:
         _, image = CAMERA.read()
     else:
-        image = cv2.imread(PATH)
+        image = cv2.imread(r"{0}".format(PATH))
 
     # Get initial image dimensions
     initial_h, initial_w, _ = image.shape
@@ -169,21 +301,26 @@ def main():
     captured = False
     corner_changed = False
     image_created = False
-    # Initialize loops
     capturing = True
     analysing = False
     # Initialize other local variables
     warped_image = None
     final_image = None
     computer_pygame_image = None
+    computer_image = np.zeros([1, 1, 3], dtype=np.uint32)
     sheet_corners = np.empty(0)
+    corners_copy = np.empty(0)
     not_black = 0
+    rotation = 0
 
     # Create pygame window
     window = pygame.display.set_mode((CAMERA_WIDTH + SPACING, CAMERA_HEIGHT))
+    pygame.display.set_icon(pygame.image.load("data\\piano.png"))
+    pygame.display.set_caption("Optical Music Recognition")
 
-    # Loop to get sheet position from image or camera
-    while capturing:
+    # Main loop
+    running = True
+    while running:
         # Cover everything in gray and limit FPS to 60
         window.fill(GRAY)
         clock.tick(60)
@@ -192,9 +329,9 @@ def main():
         mouse_x, mouse_y = pygame.mouse.get_pos()
 
         # If the image has not been captured yet
-        if not captured:
+        if capturing and not captured:
             # Get frame from camera
-            if MODE == 0:
+            if MODE == 1:
                 _, image = CAMERA.read()
 
             # Resize the image to make processing it easier
@@ -213,7 +350,7 @@ def main():
                 sheet_corners, final_contour = get_sheet_corners(processed_image, width * height)
 
                 # Analyze image only once for a still image from a file
-                if MODE == 1:
+                if MODE == 2:
                     captured = True
 
                 # If a big enough four-sided shape was detected
@@ -233,182 +370,182 @@ def main():
                 # Create pygame image object from numpy array of computer image with contours drawn
                 computer_pygame_image = create_pygame_image(computer_image, CAMERA_WIDTH, CAMERA_HEIGHT)
                 image_created = True
+                corners_copy = sheet_corners.copy()
 
         if not_black:
+            if capturing:
+                # Display pygame image
+                window.blit(computer_pygame_image, (0, 0))
+
+                # If the user moved the corners manually
+                if captured and corner_changed:
+                    # If a new pygame image object has not yet been created, create a new one from the original image (no contours)
+                    if not image_created:
+                        computer_pygame_image = create_pygame_image(image, CAMERA_WIDTH, CAMERA_HEIGHT)
+                        image_created = True
+                    pygame.draw.polygon(window, BLUE, corners_copy.reshape(4, 2), width=LINE_WIDTH)
+
+                # If there are corners detected
+                if corners_copy.size != 0:
+                    for i in range(4):
+                        # Take each corner individually
+                        corner = corners_copy.reshape(4, 2)[i]
+                        # Check if user is clicking on the corner, click number from 1 to 4, value of 0 means no click
+                        if click == i + 1:
+                            # Update the corner's position to match the user's mouse
+                            if mouse_x <= CAMERA_WIDTH:
+                                corners_copy.reshape(4, 2)[i][0] = mouse_x
+                            corners_copy.reshape(4, 2)[i][1] = mouse_y
+                        # Draw green circle where the corner is
+                        pygame.draw.circle(window, GREEN, corner, LINE_WIDTH * 3)
+
+            elif analysing:
+                # Create warped image
+                if not image_created:
+                    if not rotation:
+                        # Scale the corners from their previous position (camera scale) to their initial scale (full resolution)
+                        rescale(corners_copy, CAMERA_WIDTH, CAMERA_HEIGHT, initial_w, initial_h)
+                        # Warp initial high quality image (not sized down) based on new rescaled corners
+                        warped_image = warp(image, corners_copy, initial_w, initial_h)
+                    # Create pygame image based on viewing scale
+                    final_image = create_pygame_image(warped_image, VIEWING_WIDTH, VIEWING_HEIGHT, rotation=rotation)
+                    # Only create the image once
+                    image_created = True
+                    pygame.display.set_mode((VIEWING_WIDTH + SPACING, VIEWING_HEIGHT))
+                    window.fill(GRAY)
+                # Display image
+                window.blit(final_image, (0, 0))
+
             # If mouse is on the text, change the color
             if hovering:
                 color = GREEN
             else:
                 color = BLUE
             # Displayed text changes if user captured the image
-            if not captured:
+            text = ''
+            text_w = CAMERA_WIDTH
+            text_h = CAMERA_HEIGHT
+            if not captured and len(corners_copy) == 4:
                 text = "CAPTURE"
-            else:
-                text = "CROP"
-            # Render text and calculate position
-            text_object = FONT_64.render(text, True, color)
-            text_x = CAMERA_WIDTH + SPACING // 2 - text_object.get_width() // 2
-            text_y = CAMERA_HEIGHT // 2 - text_object.get_height() // 2
-            # Display text
-            window.blit(text_object, (text_x, text_y))
+            elif captured:
+                if capturing:
+                    text = "CROP"
+                else:
+                    text = "ROTATE"
+                    text_w = VIEWING_WIDTH
+                    text_h = VIEWING_HEIGHT
+                if MODE == 1 or analysing:
+                    # Render reset text
+                    display_text(window, FONT_32, "Press  ' r '  to  reset", RED, text_w, text_h, 3 / 4)
+
+            # Render option text
+            text_object, text_x, text_y = display_text(window, FONT_64, text, color, text_w, text_h, 1 / 2)
             # Check if mouse is on the text
             if text_object.get_rect(topleft=(text_x, text_y)).collidepoint(mouse_x, mouse_y):
                 hovering = True
             else:
                 hovering = False
 
-            # Display pygame image
-            window.blit(computer_pygame_image, (0, 0))
         else:
-            # Render text and calculate position
-            text_object = FONT_64.render("No Image Detected", True, RED)
-            text_x = CAMERA_WIDTH + SPACING // 2 - text_object.get_width() // 2
-            text_y = CAMERA_HEIGHT // 2 - text_object.get_height() // 2
-            # Display text
-            window.blit(text_object, (text_x, text_y))
+            # Render no image text
+            display_text(window, FONT_64, "No Image Detected", RED, CAMERA_WIDTH, CAMERA_HEIGHT, 1 / 2)
             # Draw black screen where camera screen should be
             black_screen = pygame.Rect((0, 0), (CAMERA_WIDTH, CAMERA_HEIGHT))
             pygame.draw.rect(window, BLACK, black_screen)
 
-        # If the user moved the corners manually
-        if captured and corner_changed:
-            # If a new pygame image object has not yet been created, create a new one from the original image (no contours)
-            if not image_created:
-                computer_pygame_image = create_pygame_image(image, CAMERA_WIDTH, CAMERA_HEIGHT)
-                image_created = True
-            pygame.draw.polygon(window, BLUE, sheet_corners.reshape(4, 2), width=LINE_WIDTH)
-
-        # If there are corners detected
-        if sheet_corners.size != 0:
-            for i in range(4):
-                # Take each corner individually
-                corner = sheet_corners.reshape(4, 2)[i]
-                # Check if user is clicking on the corner, click number from 1 to 4, value of 0 means no click
-                if click == i + 1:
-                    # Update the corner's position to match the user's mouse
-                    if mouse_x <= CAMERA_WIDTH:
-                        sheet_corners.reshape(4, 2)[i][0] = mouse_x
-                    sheet_corners.reshape(4, 2)[i][1] = mouse_y
-                # Draw green circle where the corner is
-                pygame.draw.circle(window, GREEN, corner, LINE_WIDTH * 3)
-
         # Check for events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                capturing = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and not_black:
                 # If there are corners and the user is not clicking on anything
-                if sheet_corners.size != 0 and not click and captured:
+                if capturing and corners_copy.size != 0 and not click and captured:
                     for i in range(4):
                         # Take each corner individually
-                        corner = sheet_corners.reshape(4, 2)[i]
+                        corner = corners_copy.reshape(4, 2)[i]
                         radius = LINE_WIDTH * 3
                         # Get the bounding rectangle of each corner's green circle and check for collision with the mouse
                         square = pygame.rect.Rect((corner[0] - radius, corner[1] - radius), (2 * radius, 2 * radius))
                         if square.collidepoint(mouse_x, mouse_y):
                             # Register click as corner number (1 to 4, value of 0 means no click)
                             click = i + 1
-                            # Tell next loop that a corner is being changed and tell it to create a new version of the pygame image object
+                            # Tell next loop that a corner is being changed and tell it to create a new version of
+                            # the pygame image object
                             corner_changed = True
                             image_created = False
                             # Skip the rest of the corners
                             break
-            elif event.type == pygame.MOUSEBUTTONUP:
+            elif event.type == pygame.MOUSEBUTTONUP and not_black:
                 # If user's mouse is on the text
                 if hovering:
                     # Either capture the image or crop and warp it
                     if not captured:
                         captured = True
-                    else:
-                        # Go to next loop (cropping and warping)
+                    elif capturing:
+                        # Go to next step (cropping and warping)
                         capturing = False
                         analysing = True
+                        # Tell program to create a new image
+                        image_created = False
+                    else:
+                        # Means that user clicked on rotate, tell program to create new image based on new rotation
+                        image_created = False
+                        rotation += 1
                 # Otherwise, set click back to 0 (user is no longer clicking on anything)
                 else:
                     click = 0
             elif event.type == pygame.KEYUP:
                 # Escape or 'q' to quit
                 if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                    capturing = False
+                    running = False
+                elif event.key == pygame.K_r and not_black:
+                    # Bring user back to viewing camera and capturing image
+                    if captured and capturing and MODE == 1:
+                        captured = False
+                        # Reset corners
+                        corner_changed = False
+                        corners_copy = sheet_corners.copy()
+                    # Bring user back to cropping step
+                    elif analysing:
+                        analysing = False
+                        capturing = True
+                        # Reset corners
+                        corner_changed = False
+                        corners_copy = sheet_corners.copy()
+                        # Draw image that has all the contours drawn
+                        computer_pygame_image = create_pygame_image(computer_image, CAMERA_WIDTH, CAMERA_HEIGHT)
+                        # Reset display dimensions to fit with camera dimensions
+                        pygame.display.set_mode((CAMERA_WIDTH + SPACING, CAMERA_HEIGHT))
+                        # Reset number of rotations
+                        rotation = 0
+
         # Update display
-        pygame.display.flip()
-
-    # Tell program to create a pygame image
-    image_created = False
-    rotation = 0
-    # Start loop if the user clicked on crop and did not quit
-    while analysing:
-        clock.tick(60)
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-
-        # Create warped image
-        if not image_created:
-            if not rotation:
-                # Scale the corners from their previous position (camera scale) to their initial scale (full resolution)
-                rescale(sheet_corners, CAMERA_WIDTH, CAMERA_HEIGHT, initial_w, initial_h)
-                # Warp initial high quality image (not sized down) based on new rescaled corners
-                warped_image = warp(image, sheet_corners, initial_w, initial_h)
-            # Create pygame image based on viewing scale
-            final_image = create_pygame_image(warped_image, VIEWING_WIDTH, VIEWING_HEIGHT, rotation=rotation)
-            # Only create the image once
-            image_created = True
-            pygame.display.set_mode((VIEWING_WIDTH + SPACING, VIEWING_HEIGHT))
-
-        # If mouse is on the text, change the color
-        if hovering:
-            color = GREEN
-        else:
-            color = BLUE
-        # Render text and calculate position
-        text_object = FONT_64.render("ROTATE", True, color)
-        text_x = VIEWING_WIDTH + SPACING // 2 - text_object.get_width() // 2
-        text_y = VIEWING_HEIGHT // 2 - text_object.get_height() // 2
-        # Display text
-        window.blit(text_object, (text_x, text_y))
-        # Check if mouse is on the text
-        if text_object.get_rect(topleft=(text_x, text_y)).collidepoint(mouse_x, mouse_y):
-            hovering = True
-        else:
-            hovering = False
-        # Display image
-        window.blit(final_image, (0, 0))
-
-        # Check for events
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                analysing = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                pass
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if hovering:
-                    image_created = False
-                    rotation += 1
-
-            elif event.type == pygame.KEYUP:
-                # Escape or 'q' to quit
-                if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
-                    analysing = False
-
         pygame.display.flip()
 
 
 if __name__ == "__main__":
     try:
-        if MODE == 0:
-            # Initialize video capture
-            CAMERA = cv2.VideoCapture(WEBCAM_NUM)
-            # Set camera brightness and camera resolution
-            CAMERA.set(10, 150)
-            CAMERA.set(cv2.CAP_PROP_FRAME_WIDTH, RESOLUTION[0])
-            CAMERA.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUTION[1])
+        # Tkinter window to select some of the variables (mode and paper dimensions)
+        select_mode()
+        # Check if user actually selected anything
+        if MODE == 1 or (MODE == 2 and len(PATH)):
+            # Final viewing dimensions based on aspect ratio of original paper
+            VIEWING_HEIGHT = round(PAPER_HEIGHT * VIEWING_WIDTH / PAPER_WIDTH)
+            if MODE == 1:
+                # Initialize video capture
+                CAMERA = cv2.VideoCapture(WEBCAM_NUM)
+                # Set camera brightness and camera resolution
+                CAMERA.set(10, 150)
+                CAMERA.set(cv2.CAP_PROP_FRAME_WIDTH, RESOLUTION[0])
+                CAMERA.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUTION[1])
 
-        main()
+            main()
 
-        # Close webcam
-        if MODE == 0:
-            CAMERA.release()
-        # Close everything
-        cv2.destroyAllWindows()
+            # Close webcam
+            if MODE == 1:
+                CAMERA.release()
+            # Close everything
+            cv2.destroyAllWindows()
         pygame.quit()
 
     except Exception as error:
